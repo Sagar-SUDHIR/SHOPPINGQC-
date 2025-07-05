@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Your Cart</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtf8fsNQMKA0OCb9bFNEdLKOR2ZEs1Kzw",
+      authDomain: "shopping-qc-login.firebaseapp.com",
+      projectId: "shopping-qc-login",
+      storageBucket: "shopping-qc-login.appspot.com",
+      messagingSenderId: "60268184974",
+      appId: "1:60268184974:web:3084c87057100f2dea10df"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: white;
+      padding: 30px;
+    }
+    h1 {
+      text-align: center;
+      color: gold;
+    }
+    .cart-item {
+      background: #1e1e2e;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+    }
+    .cart-item img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      margin-right: 20px;
+      border-radius: 8px;
+    }
+    .cart-item-details {
+      flex: 1;
+    }
+    .remove-btn {
+      background: red;
+      color: white;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .checkout-btn {
+      background: gold;
+      color: black;
+      padding: 14px;
+      width: 100%;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    .message {
+      text-align: center;
+      margin-top: 20px;
+      font-weight: bold;
+      color: lightgreen;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Your Cart</h1>
+<div id="cartContainer">
+  <p>Loading your cart...</p>
+</div>
+<div id="message" class="message"></div>
+
+<a href="Order.html">
+  <button class="checkout-btn">Order Now</button>
+</a>
+  
+<script>
+  const cartContainer = document.getElementById("cartContainer");
+  const messageBox = document.getElementById("message");
+  let currentUser = null;
+  let cartItems = [];
+
+  auth.onAuthStateChanged(user => {
+    if (!user) {
+      window.location.href = "account.html";
+      return;
+    }
+    currentUser = user;
+    loadCart(user.uid);
+  });
+
+  function loadCart(uid) {
+    db.collection("cart")
+      .where("buyerUid", "==", uid)
+      .get()
+      .then(snapshot => {
+        if (snapshot.empty) {
+          cartContainer.innerHTML = "<p>Your cart is empty.</p>";
+          return;
+        }
+
+        cartContainer.innerHTML = "";
+        cartItems = [];
+
+        snapshot.forEach(doc => {
+          const item = doc.data();
+          item.id = doc.id;
+          cartItems.push(item);
+
+          const itemDiv = document.createElement("div");
+          itemDiv.classList.add("cart-item");
+
+          itemDiv.innerHTML = `
+            <img src="${item.image}" />
+            <div class="cart-item-details">
+              <h3>${item.name}</h3>
+              <p>Price: ₹${item.price}</p>
+              <p>Quantity: ${item.quantity}</p>
+            </div>
+            <button class="remove-btn" onclick="removeItem('${doc.id}')">Remove</button>
+          `;
+
+          cartContainer.appendChild(itemDiv);
+        });
+      })
+      .catch(err => {
+        console.error("Error loading cart:", err);
+        cartContainer.innerHTML = "<p>Error loading cart. Please try again.</p>";
+      });
+  }
+
+  function removeItem(id) {
+    db.collection("cart").doc(id).delete().then(() => {
+      alert("Item removed!");
+      window.location.reload();
+    });
+  }
+
+  function placeOrder() {
+    if (cartItems.length === 0) {
+      messageBox.textContent = "Your cart is empty.";
+      return;
+    }
+
+    messageBox.textContent = "Placing your order...";
+
+    const batch = db.batch();
+    let completed = 0;
+
+    cartItems.forEach(item => {
+      const orderRef = db.collection("orders").doc();
+      batch.set(orderRef, {
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        image: item.image,
+        buyerUid: currentUser.uid,
+        buyerEmail: currentUser.email,
+        quantity: item.quantity,
+        orderedAt: new Date()
+      });
+
+      const inventoryRef = db.collection("inventory").doc(item.productId);
+      batch.update(inventoryRef, {
+        qty: firebase.firestore.FieldValue.increment(-item.quantity)
+      });
+
+      const cartRef = db.collection("cart").doc(item.id);
+      batch.delete(cartRef);
+    });
+
+    batch.commit()
+      .then(() => {
+        messageBox.textContent = "✅ Order placed successfully!";
+        setTimeout(() => {
+          window.location.href = "order.html";
+        }, 2000);
+      })
+      .catch(err => {
+        console.error("Order error:", err);
+        messageBox.textContent = "❌ Failed to place order.";
+      });
+  }
+</script>
+
+</body>
+</html>

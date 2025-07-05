@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - Registered Users</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #111;
+      color: white;
+      padding: 20px;
+    }
+
+    h1 {
+      color: gold;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+      background-color: #222;
+    }
+
+    th, td {
+      padding: 12px;
+      border: 1px solid #444;
+      text-align: center;
+    }
+
+    th {
+      background-color: #333;
+    }
+
+    .logout-btn {
+      background-color: crimson;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      margin-bottom: 20px;
+      cursor: pointer;
+      border-radius: 5px;
+      float: right;
+    }
+  </style>
+</head>
+<body>
+
+  <button class="logout-btn" onclick="logout()">Logout</button>
+  <h1>Registered Users</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Registered On</th>
+      </tr>
+    </thead>
+    <tbody id="userList">
+      
+      <!-- User rows appear here -->
+    </tbody>
+  </table>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtf8fsNQMKA0OCb9bFNEdLKOR2ZEs1Kzw",
+      authDomain: "shopping-qc-login.firebaseapp.com",
+      projectId: "shopping-qc-login",
+      storageBucket: "shopping-qc-login.firebasestorage.app",
+      messagingSenderId: "60268184974",
+      appId: "1:60268184974:web:3084c87057100f2dea10df",
+      measurementId: "G-6LRKB1S83F"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        loadRegisteredUsers();
+      } else {
+        alert("Only admins can access this page.");
+        window.location.href = "login admin.html";
+      }
+    });
+
+    function logout() {
+      auth.signOut().then(() => window.location.href = "login admin.html");
+    }
+
+    function loadRegisteredUsers() {
+      db.collection("registered_users").get().then(snapshot => {
+        const table = document.getElementById("userList");
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${data.email}</td>
+            <td>${data.createdAt}</td>
+          `;
+          table.appendChild(row);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

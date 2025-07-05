@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShoppingQC - Account</title>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+      margin: 0;
+      padding: 0;
+      color: white;
+    }
+    .navbar {
+      background-color: #111;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .navbar h1 {
+      margin: 0;
+      font-size: 20px;
+      color: gold;
+    }
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: calc(100vh - 70px);
+    }
+    .form-box {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 30px;
+      border-radius: 15px;
+      width: 360px;
+      box-shadow: 0 0 25px rgba(0,0,0,0.5);
+    }
+    h2 {
+      text-align: center;
+      color: gold;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: none;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background-color: gold;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    #admin-status {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+      color: lightgreen;
+    }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <h1>My Account</h1>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div class="container">
+    <div class="form-box">
+      <h2>Register / Login</h2>
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="register()">Register</button>
+       <button onclick="login()">Login</button>
+            
+      <button onclick="adminLogin()">Admin Login</button>
+      <div id="admin-status"></div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtf8fsNQMKA0OCb9bFNEdLKOR2ZEs1Kzw",
+      authDomain: "shopping-qc-login.firebaseapp.com",
+      projectId: "shopping-qc-login",
+      storageBucket: "shopping-qc-login.firebasestorage.app",
+      messagingSenderId: "60268184974",
+      appId: "1:60268184974:web:3084c87057100f2dea10df",
+      measurementId: "G-6LRKB1S83F"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    function register() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  auth.createUserWithEmailAndPassword(email, password)
+    .then((userCredential) => {
+      const user = userCredential.user;
+      db.collection("registered_users").doc(user.uid).set({
+        email: user.email,
+        createdAt: new Date().toLocaleString()
+      });
+      alert("Registered successfully!");
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 1000);
+    })
+    .catch(err => alert(err.message));
+}
+  
+    function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      auth.signInWithEmailAndPassword(email, password)
+        .then(() => alert("Logged in!"))
+        .catch(err => alert(err.message));
+    setTimeout(() => {
+              window.location.href = "index.html";
+            }, 1000);
+
+    }
+    function logout() {
+      auth.signOut().then(() => alert("Logged out!"));
+    }
+
+    function adminLogin() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const statusDiv = document.getElementById("admin-status");
+
+      statusDiv.style.color = "lightgreen";
+      statusDiv.textContent = "Checking admin login...";
+
+      if (email === "sagarvswebsite@gmail.com" && password === "KL14U3450") {
+        auth.signInWithEmailAndPassword(email, password)
+          .then(() => {
+            statusDiv.textContent = "Admin login successful! Redirecting...";
+            setTimeout(() => {
+              window.location.href = "adminpage.html";
+            }, 1000);
+          })
+          .catch(err => {
+            statusDiv.style.color = "red";
+            statusDiv.textContent = "Firebase error: " + err.message;
+          });
+      } else {
+        statusDiv.style.color = "orange";
+        statusDiv.textContent = "Access denied. Only the admin can log in here.";
+      }
+    }
+  </script>
+</body>
+</html>

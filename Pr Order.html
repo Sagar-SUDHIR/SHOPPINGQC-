@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Orders</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtf8fsNQMKA0OCb9bFNEdLKOR2ZEs1Kzw",
+      authDomain: "shopping-qc-login.firebaseapp.com",
+      projectId: "shopping-qc-login",
+      storageBucket: "shopping-qc-login.appspot.com",
+      messagingSenderId: "60268184974",
+      appId: "1:60268184974:web:3084c87057100f2dea10df"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
+
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 30px;
+    }
+    h1 {
+      color: gold;
+      text-align: center;
+    }
+    .order {
+      background: #1e1e2e;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 10px rgba(255,215,0,0.2);
+    }
+    .order h2 {
+      margin-top: 0;
+      color: gold;
+    }
+    .order p {
+      margin: 6px 0;
+    }
+    .items {
+      background: #1a1a1a;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .items ul {
+      padding-left: 18px;
+    }
+    .items li {
+      margin-bottom: 4px;
+    }
+    .meta {
+      font-size: 13px;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🧾 My Orders</h1>
+<div id="ordersContainer"><p>Loading your orders...</p></div>
+
+<script>
+  const container = document.getElementById("ordersContainer");
+
+  auth.onAuthStateChanged(user => {
+    if (!user) {
+      window.location.href = "account.html";
+      return;
+    }
+
+    db.collection("orders")
+      .where("buyerUid", "==", user.uid)
+      .orderBy("orderedAt", "desc")
+      .get()
+      .then(snapshot => {
+        if (snapshot.empty) {
+          container.innerHTML = "<p>You have no orders yet.</p>";
+          return;
+        }
+
+        container.innerHTML = "";
+
+        snapshot.forEach(doc => {
+          const o = doc.data();
+          const date = o.orderedAt?.toDate().toLocaleString() || "Unknown";
+          const payment = o.paymentMethod === "cod" ? "Cash on Delivery" : "Google Pay";
+
+          const itemList = Array.isArray(o.orderedItems)
+            ? o.orderedItems.map(i => `<li>${i.name} × ${i.quantity}</li>`).join("")
+            : `<li>${o.name} × ${o.quantity}</li>`; // fallback if no array
+
+          const div = document.createElement("div");
+          div.className = "order";
+          div.innerHTML = `
+            <h2>${o.fullName || "Order"}</h2>
+            <p><strong>Total:</strong> ₹${o.totalAmount?.toFixed(2) || "N/A"}</p>
+            <p><strong>Payment:</strong> ${payment}</p>
+            <p><strong>Phone:</strong> ${o.phone || "-"}</p>
+            <p><strong>Address:</strong> ${o.address || "-"}, ${o.pincode || ""}</p>
+            <div class="items">
+              <strong>Items Ordered:</strong>
+              <ul>${itemList}</ul>
+            </div>
+            <p class="meta">Ordered on: ${date}</p>
+          `;
+          container.appendChild(div);
+        });
+      })
+      .catch(err => {
+        console.error("Order fetch error:", err);
+        container.innerHTML = "<p>❌ Failed to load your orders. Please try again later.</p>";
+      });
+  });
+</script>
+
+</body>
+</html>

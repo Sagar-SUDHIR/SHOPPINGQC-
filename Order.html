@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Order Confirmation</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtf8fsNQMKA0OCb9bFNEdLKOR2ZEs1Kzw",
+      authDomain: "shopping-qc-login.firebaseapp.com",
+      projectId: "shopping-qc-login",
+      storageBucket: "shopping-qc-login.appspot.com",
+      messagingSenderId: "60268184974",
+      appId: "1:60268184974:web:3084c87057100f2dea10df"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
+
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 30px;
+    }
+    h1 {
+      color: gold;
+      text-align: center;
+    }
+    form {
+      max-width: 500px;
+      margin: auto;
+      background: #1e1e2e;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: none;
+    }
+    button {
+      background: gold;
+      color: black;
+      font-weight: bold;
+      border: none;
+      padding: 14px;
+      margin-top: 20px;
+      border-radius: 8px;
+      width: 100%;
+      cursor: pointer;
+    }
+    .message {
+      text-align: center;
+      color: lightgreen;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+    .qr-popup {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      flex-direction: column;
+    }
+    .qr-popup img {
+      max-width: 300px;
+      border: 4px solid white;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    #summary {
+      background: #1a1a1a;
+      padding: 10px;
+      margin: 20px auto;
+      max-width: 500px;
+      border-radius: 10px;
+      font-size: 14px;
+      color: lightgray;
+    }
+    #summary h3 {
+      margin: 0 0 10px;
+      color: gold;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🧾 Place Your Order</h1>
+
+<form id="orderForm">
+  <label>Full Name</label>
+  <input type="text" id="name" required />
+
+  <label>Phone Number</label>
+  <input type="tel" id="phone" required />
+
+  <label>Address</label>
+  <textarea id="address" rows="3" required></textarea>
+
+  <label>Pin Code</label>
+  <input type="text" id="pincode" required />
+
+  <label>Payment Method</label>
+  <select id="paymentMethod" required>
+    <option value="cod">Cash on Delivery</option>
+    <option value="gpay">Google Pay</option>
+  </select>
+
+  <div id="summary">
+    <h3>🛒 Order Summary</h3>
+    <div id="itemList">Loading cart...</div>
+    <p><strong>Total: ₹<span id="totalAmount">0</span></strong></p>
+  </div>
+
+  <button type="submit">Continue</button>
+</form>
+
+<div id="message" class="message"></div>
+
+<!-- GPay QR POPUP -->
+<div class="qr-popup" id="qrPopup">
+  <img src="gpayqr.jpg" alt="Scan GPay QR">
+  <button onclick="placeOrder('gpay')">✅ Payment Done</button>
+</div>
+
+<script>
+  let currentUser = null;
+  let cartItems = [];
+  let totalAmount = 0;
+
+  auth.onAuthStateChanged(user => {
+    if (!user) {
+      window.location.href = "account.html";
+    } else {
+      currentUser = user;
+      loadCart();
+    }
+  });
+
+  function loadCart() {
+    const itemList = document.getElementById("itemList");
+    const totalView = document.getElementById("totalAmount");
+
+    db.collection("cart").where("buyerUid", "==", currentUser.uid).get().then(snapshot => {
+      if (snapshot.empty) {
+        itemList.innerHTML = "<p>Your cart is empty.</p>";
+        return;
+      }
+
+      itemList.innerHTML = "";
+      cartItems = [];
+      totalAmount = 0;
+
+      snapshot.forEach(doc => {
+        const item = doc.data();
+        cartItems.push({ ...item, id: doc.id });
+
+        totalAmount += parseFloat(item.price) * item.quantity;
+        itemList.innerHTML += `<p>${item.name} - Qty: ${item.quantity}</p>`;
+      });
+
+      totalView.textContent = totalAmount.toFixed(2);
+    }).catch(err => {
+      console.error("Cart load error:", err);
+      itemList.innerHTML = "❌ Failed to load cart.";
+    });
+  }
+
+  document.getElementById("orderForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const payment = document.getElementById("paymentMethod").value;
+    if (payment === "gpay") {
+      document.getElementById("qrPopup").style.display = "flex";
+    } else {
+      placeOrder("cod");
+    }
+  });
+
+  async function placeOrder(paymentMethod) {
+    const name = document.getElementById("name").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const address = document.getElementById("address").value.trim();
+    const pincode = document.getElementById("pincode").value.trim();
+    const msg = document.getElementById("message");
+
+    if (!name || !phone || !address || !pincode) {
+      msg.textContent = "Please fill all required fields.";
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      msg.textContent = "Your cart is empty.";
+      return;
+    }
+
+    msg.textContent = "⏳ Placing your order...";
+
+    try {
+      const batch = db.batch();
+
+      cartItems.forEach(item => {
+        const orderRef = db.collection("orders").doc();
+
+        batch.set(orderRef, {
+          ...item,
+          buyerEmail: currentUser.email,
+          buyerUid: currentUser.uid,
+          orderedAt: new Date(),
+          fullName: name,
+          phone: phone,
+          address: address,
+          pincode: pincode,
+          paymentMethod: paymentMethod,
+          totalAmount: totalAmount,
+          orderedItems: cartItems.map(i => ({
+            name: i.name,
+            quantity: i.quantity
+          }))
+        });
+
+        const invRef = db.collection("inventory").doc(item.productId);
+        batch.update(invRef, {
+          qty: firebase.firestore.FieldValue.increment(-item.quantity)
+        });
+
+        batch.delete(db.collection("cart").doc(item.id));
+      });
+
+      await batch.commit();
+      msg.textContent = "✅ Order placed successfully!";
+      document.getElementById("qrPopup").style.display = "none";
+
+      setTimeout(() => window.location.href = "index.html", 2000);
+    } catch (err) {
+      console.error("❌ Order error:", err);
+      msg.textContent = "❌ Error: " + err.message;
+    }
+  }
+</script>
+
+</body>
+</html>

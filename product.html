@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product Details</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCtf8fsNQMKA0OCb9bFNEdLKOR2ZEs1Kzw",
+      authDomain: "shopping-qc-login.firebaseapp.com",
+      projectId: "shopping-qc-login",
+      storageBucket: "shopping-qc-login.appspot.com",
+      messagingSenderId: "60268184974",
+      appId: "1:60268184974:web:3084c87057100f2dea10df"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f2027;
+      color: white;
+      padding: 20px;
+    }
+    .product-container {
+      max-width: 600px;
+      margin: auto;
+      background: #1e1e2e;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    }
+    img {
+      width: 100%;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      max-height: 300px;
+      object-fit: contain;
+    }
+    h2 { color: gold; margin-bottom: 5px; }
+    p.price { color: lightgreen; font-size: 18px; }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border: none;
+    }
+    .btn {
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .add-btn { background-color: deepskyblue; color: black; }
+    .order-btn { background-color: gold; color: black; }
+    #message {
+      text-align: center;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="product-container">
+  <img id="product-image" src="images/default.png" />
+  <h2 id="product-name">Loading...</h2>
+  <p class="price" id="product-price">$0.00</p>
+  <p id="product-description">Description loading...</p>
+  <p id="product-category">Category: -</p>
+
+  <label>Quantity</label>
+  <input type="number" id="product-qty" value="1" min="1" />
+
+  <button class="btn add-btn" onclick="addToCart()">Add to Cart</button>
+  <button class="btn order-btn" onclick="orderNow()">Order Now</button>
+
+  <div id="message"></div>
+</div>
+
+<script>
+  let productId;
+  let productData;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    productId = params.get("id");
+
+    if (!productId) {
+      document.querySelector(".product-container").innerHTML = "<h2>Product ID missing</h2>";
+      return;
+    }
+
+    db.collection("inventory").doc(productId).get().then(doc => {
+      if (!doc.exists) {
+        document.querySelector(".product-container").innerHTML = "<h2>Product not found</h2>";
+        return;
+      }
+
+      productData = doc.data();
+      document.getElementById("product-name").textContent = productData.name;
+      document.getElementById("product-price").textContent = "$" + productData.price;
+      document.getElementById("product-image").src = productData.image || "images/default.png";
+      document.getElementById("product-description").textContent = productData.description || "-";
+      document.getElementById("product-category").textContent = "Category: " + (productData.category || "-");
+    });
+  });
+
+  function addToCart() {
+    const user = firebase.auth().currentUser;
+    const qty = parseInt(document.getElementById("product-qty").value);
+    const msg = document.getElementById("message");
+
+    if (!user) return msg.textContent = "Please log in to add to cart.";
+    if (!productData || qty < 1) return msg.textContent = "Invalid quantity.";
+
+    db.collection("cart").add({
+      productId: productId,
+      name: productData.name,
+      price: productData.price,
+      image: productData.image,
+      buyerUid: user.uid,
+      quantity: qty,
+      addedAt: new Date()
+    }).then(() => {
+      msg.textContent = "✅ Added to cart!";
+    }).catch(err => {
+      console.error("Cart error:", err);
+      msg.textContent = "❌ Failed to add to cart.";
+    });
+  }
+
+  function orderNow() {
+    const user = firebase.auth().currentUser;
+    const qty = parseInt(document.getElementById("product-qty").value);
+    const msg = document.getElementById("message");
+
+    if (!user) return msg.textContent = "Please log in to order.";
+    if (!productData || qty < 1) return msg.textContent = "Invalid quantity.";
+
+    if (typeof productData.qty === "number" && productData.qty < qty) {
+      return msg.textContent = "Not enough stock.";
+    }
+
+    msg.textContent = "Placing order...";
+
+    db.collection("orders").add({
+      productId,
+      name: productData.name,
+      price: productData.price,
+      image: productData.image,
+      buyerUid: user.uid,
+      buyerEmail: user.email,
+      quantity: qty,
+      orderedAt: new Date()
+    }).then(() => {
+      return db.collection("inventory").doc(productId).update({
+        qty: firebase.firestore.FieldValue.increment(-qty)
+      });
+    }).then(() => {
+      msg.textContent = "✅ Order placed! Redirecting...";
+      setTimeout(() => window.location.href = "order.html", 2000);
+    }).catch(err => {
+      console.error("Order error:", err);
+      msg.textContent = "❌ Order failed.";
+    });
+  }
+</script>
+
+</body>
+</html>
